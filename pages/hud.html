@@ -445,15 +445,59 @@ FatigueGuard.start(null, null, data => {
   if (data.alert) showAlert('😴', 'DROWSINESS DETECTED', 'PERCLOS > 75% — Wake up!', 3000);
 });
 
-// ── Main sensor loop ──────────────────────────────────────
+// ── Speed source: GPS primary, SensorSim fallback ────────
+// GPS Geolocation API returns coords.speed in m/s (null if unavailable)
+let usingRealGPS = false;
+let lastGPSSpeed = null;
+
+function setSpeedSource(isReal) {
+  usingRealGPS = isReal;
+  const label = document.getElementById('scenario-label');
+  if (isReal) {
+    label.textContent = '📡 REAL GPS SPEED';
+    label.style.color = 'var(--teal)';
+  }
+}
+
+// Start real GPS speed tracking
+if ('geolocation' in navigator) {
+  navigator.geolocation.watchPosition(pos => {
+    const gpsSpeed = pos.coords.speed; // m/s or null
+    if (gpsSpeed !== null && gpsSpeed >= 0) {
+      lastGPSSpeed = gpsSpeed * 3.6; // convert to km/h
+      setSpeedSource(true);
+      updateSpeedo(lastGPSSpeed);
+      updatePhysics(lastGPSSpeed, SensorSim.state.gforce || 0.05);
+      // Real GPS position for geocoding + weather
+      updateRoadName(pos.coords.latitude, pos.coords.longitude);
+      updateWeatherDisplay(pos.coords.latitude, pos.coords.longitude);
+    }
+  }, err => {
+    console.warn('[GPS] speed unavailable:', err.message);
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 500,
+    timeout: 5000
+  });
+}
+
+// SensorSim: provides G-force, PERCLOS, pothole sim always;
+// provides speed ONLY when real GPS speed is unavailable
 SensorSim.on('motion', data => {
-  updateSpeedo(data.speed);
   updateGforce(data.gforce);
-  updatePhysics(data.speed, data.gforce);
+  if (!usingRealGPS || lastGPSSpeed === null) {
+    // No real GPS speed available — use simulation
+    updateSpeedo(data.speed);
+    updatePhysics(data.speed, data.gforce);
+  } else {
+    // Real speed from GPS, but still use sim G-force for physics until DeviceMotion works
+    updatePhysics(lastGPSSpeed, data.gforce);
+  }
   if (data.gforce > 4) DeadMansSwitch.trigger(data.gforce, null);
 });
 
 SensorSim.on('scenario', data => {
+  if (usingRealGPS) return; // don't override label when using real GPS
   const label = data.name.toUpperCase().replace('HARDBRAK','HARD BRAKING');
   document.getElementById('scenario-label').textContent = 'SIM: ' + label;
   document.querySelectorAll('.scen-btn').forEach(b => b.classList.remove('active'));
