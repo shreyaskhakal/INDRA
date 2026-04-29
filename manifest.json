@@ -1,0 +1,44 @@
+{
+  "name": "Project Indra — Road Safety AI",
+  "short_name": "Indra",
+  "description": "Real-time road safety co-pilot for India. Physics-based alerts, drowsiness detection, and pothole mapping.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#050507",
+  "background_color": "#050507",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["navigation", "utilities", "health"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Driver Mode",
+      "short_name": "Co-Pilot",
+      "description": "Launch the Driver HUD",
+      "url": "/pages/hud.html",
+      "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Authority Dashboard",
+      "short_name": "Dashboard",
+      "description": "Road Health Authority View",
+      "url": "/pages/dashboard.html",
+      "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

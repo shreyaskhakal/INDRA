@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indra — Authority Dashboard</title>
+  <link rel="stylesheet" href="../css/design-system.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body { height:100vh; overflow:hidden; display:flex; flex-direction:column; background:var(--bg-base); }
+
+    /* TOP NAV */
+    .dash-nav {
+      display:flex; align-items:center; gap:16px; padding:10px 20px;
+      background:rgba(5,5,7,0.98); border-bottom:1px solid rgba(255,255,255,0.06);
+      flex-shrink:0; z-index:1000;
+    }
+    .dash-nav-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; letter-spacing:0.1em; color:var(--teal); }
+    .dash-nav-title { color:var(--text-secondary); font-size:0.82rem; }
+    .dash-nav-links { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    .dash-nav-links a { font-family:var(--font-mono); font-size:0.65rem; color:var(--text-muted);
+      padding:4px 12px; border-radius:99px; border:1px solid rgba(255,255,255,0.08);
+      transition:all 0.2s; }
+    .dash-nav-links a:hover { border-color:var(--teal); color:var(--teal); }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:var(--teal);
+      animation:pulse-dot 1.2s infinite; display:inline-block; margin-right:4px; }
+
+    /* LAYOUT */
+    .dash-body { flex:1; display:flex; overflow:hidden; }
+
+    /* MAP */
+    #map { flex:1; z-index:1; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width:340px; flex-shrink:0; background:rgba(5,5,7,0.96);
+      border-left:1px solid rgba(255,255,255,0.06);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+
+    /* STATS ROW */
+    .stats-row {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+      background:rgba(255,255,255,0.04); flex-shrink:0;
+    }
+    .stat-box {
+      background:var(--bg-surface); padding:14px 16px; text-align:center;
+    }
+    .stat-box-num { font-family:var(--font-display); font-size:1.8rem; font-weight:700; line-height:1; }
+    .stat-box-lbl { font-family:var(--font-mono); font-size:0.55rem; letter-spacing:0.15em;
+      text-transform:uppercase; color:var(--text-muted); margin-top:3px; }
+
+    /* SECTION HEADER */
+    .sec-header {
+      padding:12px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.05);
+      font-family:var(--font-mono); font-size:0.62rem; letter-spacing:0.18em;
+      text-transform:uppercase; color:var(--text-muted); flex-shrink:0;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+
+    /* ROAD HEALTH LIST */
+    .road-list { overflow-y:auto; flex-shrink:0; max-height:220px; }
+    .road-row {
+      display:flex; align-items:center; gap:12px;
+      padding:10px 16px; border-bottom:1px solid rgba(255,255,255,0.04);
+      transition:background 0.2s; cursor:default;
+    }
+    .road-row:hover { background:rgba(255,255,255,0.03); }
+    .road-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .road-name { font-size:0.8rem; flex:1; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .road-score { font-family:var(--font-display); font-size:1rem; font-weight:700; }
+    .road-potholes { font-family:var(--font-mono); font-size:0.62rem; color:var(--text-muted); }
+
+    /* INCIDENT FEED */
+    .incident-feed { flex:1; overflow-y:auto; }
+    .incident-item {
+      display:flex; gap:12px; padding:10px 16px;
+      border-bottom:1px solid rgba(255,255,255,0.04);
+      animation:slide-in-right 0.4s var(--ease-out) both;
+    }
+    .incident-icon { font-size:1.2rem; flex-shrink:0; margin-top:2px; }
+    .incident-type { font-size:0.82rem; font-weight:600; color:var(--text-primary); }
+    .incident-meta { font-family:var(--font-mono); font-size:0.62rem; color:var(--text-muted); margin-top:2px; }
+    .incident-severity { font-size:0.6rem; padding:2px 7px; border-radius:99px; font-weight:600; }
+    .sev-high   { background:var(--red-subtle);   color:var(--red); }
+    .sev-medium { background:var(--amber-subtle); color:var(--amber); }
+    .sev-low    { background:var(--teal-subtle);  color:var(--teal); }
+
+    /* FILTER BAR */
+    .filter-bar {
+      padding:8px 16px; border-bottom:1px solid rgba(255,255,255,0.05);
+      display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0;
+    }
+    .filter-btn {
+      padding:3px 10px; border-radius:99px; border:1px solid rgba(255,255,255,0.08);
+      background:transparent; color:var(--text-muted);
+      font-family:var(--font-mono); font-size:0.6rem; cursor:pointer; transition:all 0.2s;
+    }
+    .filter-btn.active { border-color:var(--teal); color:var(--teal); background:var(--teal-subtle); }
+
+    /* LEAFLET OVERRIDES */
+    .leaflet-container { background:#050507; }
+    .leaflet-tile { filter:brightness(0.85) saturate(0.7); }
+    .custom-marker {
+      width:12px; height:12px; border-radius:50%;
+      border:2px solid rgba(0,0,0,0.5);
+      box-shadow:0 0 8px currentColor;
+    }
+    .leaflet-popup-content-wrapper {
+      background:#1A1A2E; border:1px solid rgba(0,212,170,0.25);
+      color:#F2F2FA; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.8);
+    }
+    .leaflet-popup-tip { background:#1A1A2E; }
+    .leaflet-popup-content { font-family:'Inter',sans-serif; font-size:0.82rem; line-height:1.6; }
+    .popup-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem;
+      color:var(--teal); margin-bottom:4px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="dash-nav">
+  <div class="dash-nav-logo">⚡ INDRA</div>
+  <div class="dash-nav-title">NHAI Road Health Dashboard — Bengaluru</div>
+  <div class="dash-nav-links">
+    <span><span class="live-dot"></span><span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--teal)">LIVE</span></span>
+    <a href="hud.html">← Driver Mode</a>
+    <a href="../index.html">Home</a>
+  </div>
+</nav>
+
+<div class="dash-body">
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-box-num text-amber" id="stat-total">0</div>
+        <div class="stat-box-lbl">Potholes Today</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-num text-red" id="stat-sos">0</div>
+        <div class="stat-box-lbl">SOS Events</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-num text-teal" id="stat-score">--</div>
+        <div class="stat-box-lbl">Avg Health %</div>
+      </div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="filter-bar">
+      <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);align-self:center">FILTER:</span>
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('severe',this)">Severe</button>
+      <button class="filter-btn" onclick="setFilter('moderate',this)">Moderate</button>
+      <button class="filter-btn" onclick="setFilter('minor',this)">Minor</button>
+      <button class="filter-btn" onclick="setFilter('sos',this)">🚨 SOS</button>
+    </div>
+
+    <!-- ROAD HEALTH -->
+    <div class="sec-header">
+      <span>Road Health Scores</span>
+      <span id="road-update" style="color:var(--teal);font-size:0.6rem">LIVE</span>
+    </div>
+    <div class="road-list" id="road-list"></div>
+
+    <!-- INCIDENT FEED -->
+    <div class="sec-header">
+      <span>Live Incident Feed</span>
+      <span id="incident-count" style="color:var(--amber)">0 events</span>
+    </div>
+    <div class="incident-feed" id="incident-feed"></div>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../js/mock-data.js"></script>
+<script src="../js/sensor-sim.js"></script>
+<script src="../js/pothole-mapper.js"></script>
+<script src="../js/audio-engine.js"></script>
+
+<script>
+// ── Seed data ─────────────────────────────────────────────
+MockData.seed();
+
+// ── Map Init ──────────────────────────────────────────────
+const map = L.map('map', {
+  center: [12.9716, 77.5946], zoom: 12, zoomControl: true,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19, subdomains: 'abcd'
+}).addTo(map);
+
+// ── Marker helpers ────────────────────────────────────────
+function makeIcon(color, size=12) {
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.4);box-shadow:0 0 10px ${color};"></div>`,
+    iconSize:[size,size], iconAnchor:[size/2,size/2]
+  });
+}
+
+const COLORS = { severe:'#E94560', moderate:'#F5A623', minor:'#00D4AA', sos:'#9B59B6' };
+let allMarkers = [];
+let activeFilter = 'all';
+
+// ── Load Potholes ─────────────────────────────────────────
+const potholes = MockData.generatePotholes(180);
+
+function renderMarkers(filter) {
+  allMarkers.forEach(m => map.removeLayer(m));
+  allMarkers = [];
+
+  const toShow = filter === 'sos'
+    ? JSON.parse(localStorage.getItem('indra_sos') || '[]')
+    : potholes.filter(p => filter === 'all' || p.severity === filter);
+
+  toShow.forEach(p => {
+    const isSos = p.status !== undefined;
+    const color = isSos ? COLORS.sos : COLORS[p.severity] || COLORS.minor;
+    const size  = isSos ? 16 : (p.severity==='severe' ? 14 : p.severity==='moderate' ? 11 : 8);
+    const marker = L.marker([p.lat, p.lng], { icon: makeIcon(color, size) });
+    const ts = new Date(p.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    marker.bindPopup(`
+      <div class="popup-title">${isSos ? '🚨 SOS EVENT' : '🕳️ ' + (p.severity||'').toUpperCase() + ' POTHOLE'}</div>
+      <div>Road: <b>${p.road || 'Unknown'}</b></div>
+      <div>Magnitude: <b>${isSos ? p.gforce+'G impact' : (p.magnitude||0).toFixed(1)+'G'}</b></div>
+      <div>Time: ${ts}</div>
+      ${p.upvotes ? '<div>Upvotes: '+p.upvotes+'</div>' : ''}
+    `);
+    marker.addTo(map);
+    allMarkers.push(marker);
+  });
+
+  document.getElementById('stat-total').textContent = potholes.length;
+  document.getElementById('stat-sos').textContent =
+    JSON.parse(localStorage.getItem('indra_sos')||'[]').length;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMarkers(f);
+}
+
+renderMarkers('all');
+
+// ── Road Health Scores ────────────────────────────────────
+const healthData = MockData.roadHealthStats();
+const avg = Math.round(healthData.reduce((s,r)=>s+r.score,0)/healthData.length);
+document.getElementById('stat-score').textContent = avg;
+
+const roadList = document.getElementById('road-list');
+healthData.sort((a,b)=>a.score-b.score).forEach(r => {
+  roadList.innerHTML += `
+    <div class="road-row">
+      <div class="road-dot" style="background:${r.color};box-shadow:0 0 6px ${r.color}"></div>
+      <div class="road-name">${r.name}</div>
+      <div>
+        <div class="road-score" style="color:${r.color}">${r.score}</div>
+        <div class="road-potholes">${r.potholes} potholes</div>
+      </div>
+    </div>`;
+});
+
+// ── Incident Feed ─────────────────────────────────────────
+const incidents = MockData.generateIncidentFeed(20);
+const feed = document.getElementById('incident-feed');
+document.getElementById('incident-count').textContent = incidents.length + ' events';
+
+incidents.forEach((inc, i) => {
+  const div = document.createElement('div');
+  div.className = 'incident-item';
+  div.style.animationDelay = (i * 0.05) + 's';
+  div.innerHTML = `
+    <div class="incident-icon">${inc.icon}</div>
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+        <div class="incident-type">${inc.type}</div>
+        <span class="incident-severity sev-${inc.severity}">${inc.severity}</span>
+      </div>
+      <div class="incident-meta">${inc.road} · ${inc.ago}m ago</div>
+    </div>`;
+  feed.appendChild(div);
+});
+
+// ── Live new pothole simulation (adds to map) ─────────────
+let liveCount = 0;
+SensorSim.on('pothole', event => {
+  const marker = L.marker([event.lat, event.lng], { icon: makeIcon(COLORS.severe, 14) });
+  marker.bindPopup(`<div class="popup-title">🕳️ LIVE DETECTION</div><div>Just now · ${event.magnitude.toFixed(1)}G</div>`);
+  marker.addTo(map);
+  allMarkers.push(marker);
+  liveCount++;
+  document.getElementById('stat-total').textContent = potholes.length + liveCount;
+
+  // Flash new incident at top of feed
+  const div = document.createElement('div');
+  div.className = 'incident-item';
+  div.style.borderLeft = '3px solid var(--red)';
+  div.innerHTML = `<div class="incident-icon">🕳️</div><div><div class="incident-type">NEW · Pothole Detected</div><div class="incident-meta">Live · ${event.magnitude.toFixed(1)}G jerk</div></div>`;
+  feed.prepend(div);
+});
+
+SensorSim.start();
+</script>
+</body>
+</html>

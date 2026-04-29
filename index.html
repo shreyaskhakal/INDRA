@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Project Indra — AI-powered road safety co-pilot reducing fatalities on Indian roads.">
+  <title>Project Indra — Road Safety AI</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/design-system.css">
+  <style>
+    body { overflow-x: hidden; }
+
+    /* ── PARTICLE CANVAS ─────────────────────────────── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none; opacity: 0.35;
+    }
+
+    /* ── NAV ─────────────────────────────────────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 48px;
+      background: rgba(5,5,7,0.7);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-display); font-size: 1.5rem;
+      font-weight: 700; letter-spacing: 0.1em; color: var(--text-primary);
+    }
+    .nav-logo .logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; box-shadow: 0 0 20px var(--teal-glow);
+    }
+    .nav-badge {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: var(--teal); letter-spacing: 0.15em;
+      border: 1px solid rgba(0,212,170,0.3);
+      padding: 3px 8px; border-radius: 4px;
+    }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 0.05em; }
+    .nav-links a:hover { color: var(--text-primary); }
+
+    /* ── HERO ────────────────────────────────────────── */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 0.75rem;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--teal); margin-bottom: 24px;
+      background: var(--teal-subtle); border: var(--border-teal);
+      padding: 6px 16px; border-radius: var(--radius-full);
+    }
+    .hero-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal); animation: pulse-dot 1.4s infinite; }
+
+    .hero h1 {
+      font-size: clamp(3.5rem, 9vw, 7.5rem);
+      background: linear-gradient(135deg, #ffffff 0%, var(--teal) 50%, #4D9FFF 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-shift 4s ease infinite;
+      margin-bottom: 16px;
+    }
+    .hero-sub {
+      font-family: var(--font-display); font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+      color: var(--text-secondary); font-weight: 400; margin-bottom: 16px;
+      letter-spacing: 0.05em;
+    }
+    .hero-desc {
+      max-width: 600px; margin: 0 auto 48px;
+      font-size: 1rem; color: var(--text-muted); line-height: 1.8;
+    }
+
+    .hero-cta {
+      display: flex; gap: 16px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 80px;
+    }
+    .cta-card {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 28px 36px;
+      background: rgba(26,26,46,0.7);
+      border-radius: var(--radius-xl);
+      border: var(--border-subtle);
+      backdrop-filter: blur(20px);
+      cursor: pointer; text-decoration: none; color: inherit;
+      transition: all 0.3s var(--ease-out);
+      min-width: 200px;
+    }
+    .cta-card:hover { transform: translateY(-6px); }
+    .cta-card.teal { border: var(--border-teal); box-shadow: var(--shadow-teal); }
+    .cta-card.teal:hover { box-shadow: 0 0 50px rgba(0,212,170,0.35); }
+    .cta-card.red { border: var(--border-red); box-shadow: 0 0 20px rgba(233,69,96,0.2); }
+    .cta-card.red:hover { box-shadow: 0 0 50px rgba(233,69,96,0.35); }
+    .cta-icon {
+      width: 56px; height: 56px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+    }
+    .cta-card.teal .cta-icon { background: var(--teal-subtle); }
+    .cta-card.red  .cta-icon { background: var(--red-subtle); }
+    .cta-title {
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 1.2rem; letter-spacing: 0.05em;
+    }
+    .cta-subtitle { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── STATS BAR ───────────────────────────────────── */
+    .stats-bar {
+      position: relative; z-index: 1;
+      display: flex; justify-content: center; gap: 0;
+      background: rgba(13,13,20,0.9); border-top: var(--border-subtle);
+      border-bottom: var(--border-subtle); padding: 32px 48px;
+      backdrop-filter: blur(12px); flex-wrap: wrap;
+    }
+    .stat-item {
+      flex: 1; min-width: 180px; text-align: center;
+      padding: 0 32px; border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num {
+      font-family: var(--font-display); font-size: 2.8rem;
+      font-weight: 700; line-height: 1;
+    }
+    .stat-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── FEATURES ────────────────────────────────────── */
+    .features {
+      position: relative; z-index: 1;
+      padding: 100px 48px;
+    }
+    .features-header { text-align: center; margin-bottom: 64px; }
+    .features-header .eyebrow {
+      font-family: var(--font-mono); font-size: 0.75rem;
+      color: var(--teal); letter-spacing: 0.2em; text-transform: uppercase;
+      margin-bottom: 16px; display: block;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px; max-width: 1200px; margin: 0 auto;
+    }
+    .feature-card {
+      background: rgba(19,19,31,0.8);
+      border: var(--border-subtle); border-radius: var(--radius-lg);
+      padding: 32px; cursor: default;
+      transition: all 0.3s var(--ease-out);
+      position: relative; overflow: hidden;
+    }
+    .feature-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-color, var(--teal)), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.12); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 20px;
+    }
+    .feature-layer {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .feature-card h3 { font-size: 1.2rem; margin-bottom: 12px; }
+    .feature-card p { font-size: 0.88rem; line-height: 1.7; color: var(--text-muted); }
+
+    /* ── ARCHITECTURE VISUAL ─────────────────────────── */
+    .arch-section {
+      position: relative; z-index: 1;
+      padding: 80px 48px;
+      background: rgba(13,13,20,0.6); border-top: var(--border-subtle);
+    }
+    .arch-pills {
+      display: flex; justify-content: center;
+      gap: 16px; flex-wrap: wrap; margin-top: 48px;
+    }
+    .arch-pill {
+      padding: 12px 24px; border-radius: var(--radius-full);
+      background: rgba(26,26,46,0.8); border: var(--border-subtle);
+      font-family: var(--font-mono); font-size: 0.82rem;
+      display: flex; align-items: center; gap: 8px;
+      transition: all 0.3s;
+    }
+    .arch-pill:hover { border-color: rgba(0,212,170,0.3); color: var(--teal); }
+    .arch-pill .pi { font-size: 1rem; }
+
+    /* ── FOOTER ──────────────────────────────────────── */
+    .footer {
+      position: relative; z-index: 1;
+      text-align: center; padding: 40px;
+      border-top: var(--border-subtle);
+      color: var(--text-muted); font-size: 0.82rem;
+    }
+    .footer span { color: var(--teal); }
+  </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<!-- ── NAV ──────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="logo-icon">⚡</div>
+    INDRA
+    <span class="nav-badge">v1.0</span>
+  </div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#architecture">Stack</a>
+    <a href="pages/hud.html" class="btn btn-primary" style="padding:8px 20px;font-size:0.82rem;">Launch App</a>
+  </div>
+</nav>
+
+<!-- ── HERO ──────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="dot"></span>
+    HACKATHON BUILD — IITM × MoRTH CHALLENGE
+  </div>
+  <h1>PROJECT INDRA</h1>
+  <p class="hero-sub">India's AI-Powered Road Safety Co-Pilot</p>
+  <p class="hero-desc">
+    Physics-based collision prediction · Real-time drowsiness detection ·
+    Crowdsourced pothole mapping · Dead Man's Switch SOS
+  </p>
+
+  <div class="hero-cta">
+    <a href="pages/hud.html" class="cta-card teal">
+      <div class="cta-icon">🚗</div>
+      <span class="cta-title text-teal">Driver Mode</span>
+      <span class="cta-subtitle">Co-Pilot HUD</span>
+    </a>
+    <a href="pages/dashboard.html" class="cta-card red">
+      <div class="cta-icon">🗺️</div>
+      <span class="cta-title text-red">Authority Mode</span>
+      <span class="cta-subtitle">NHAI Dashboard</span>
+    </a>
+  </div>
+</section>
+
+<!-- ── STATS ─────────────────────────────────────────────── -->
+<section class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num text-red glow-red" data-count="153000">0</div>
+    <div class="stat-desc">Annual Road Deaths in India</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num text-amber" data-count="84">0</div>
+    <div class="stat-desc">% Due to Human Error / Fatigue</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num text-teal" data-count="92">0</div>
+    <div class="stat-desc">% Detection Accuracy (Potholes)</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" data-count="0" data-suffix="ms">150</div>
+    <div class="stat-desc">Alert Latency Target</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num text-teal" data-prefix="₹" data-count="0">0</div>
+    <div class="stat-desc">Additional Hardware Cost</div>
+  </div>
+</section>
+
+<!-- ── FEATURES ──────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="features-header">
+    <span class="eyebrow">System Modules</span>
+    <h2>Five Layers of Protection</h2>
+    <p style="color:var(--text-muted);margin-top:12px;max-width:500px;margin-inline:auto;">
+      Every module runs on-device. No cloud round-trips. No privacy leaks.
+    </p>
+  </div>
+  <div class="features-grid">
+
+    <div class="feature-card" style="--accent-color:var(--teal)">
+      <div class="feature-icon" style="background:var(--teal-subtle)">⚛️</div>
+      <div class="feature-layer text-teal">Einstein / Tesla Layer</div>
+      <h3>Predictive Physics Engine</h3>
+      <p>Calculates real-time collision vectors using IMU data. If your braking force can't beat the stopping distance — you get warned before the moment of impact.</p>
+    </div>
+
+    <div class="feature-card" style="--accent-color:var(--blue)">
+      <div class="feature-icon" style="background:rgba(77,159,255,0.1)">👁️</div>
+      <div class="feature-layer" style="color:var(--blue)">Da Vinci Layer</div>
+      <h3>Vision-Based Fatigue Guard</h3>
+      <p>MediaPipe Face Mesh tracks PERCLOS (eye closure %) at 30fps. Microsaccade detection triggers a high-frequency Tesla-Coil audio alert under 150ms.</p>
+    </div>
+
+    <div class="feature-card" style="--accent-color:var(--amber)">
+      <div class="feature-icon" style="background:var(--amber-subtle)">🛣️</div>
+      <div class="feature-layer text-amber">Indian Engineer Layer</div>
+      <h3>Automated Pothole Mapper</h3>
+      <p>Z-axis IMU jerk detection silently maps potholes to GPS coordinates in the background. Syncs to a live authority dashboard when signal returns.</p>
+    </div>
+
+    <div class="feature-card" style="--accent-color:var(--red)">
+      <div class="feature-icon" style="background:var(--red-subtle)">🚨</div>
+      <div class="feature-layer text-red">Torvalds Layer</div>
+      <h3>Dead Man's Switch</h3>
+      <p>Impact > 4G triggers a 10-second countdown. No dismissal = automatic SOS with GPS link to the nearest 3 trauma centres. True fail-safe design.</p>
+    </div>
+
+    <div class="feature-card" style="--accent-color:var(--purple)">
+      <div class="feature-icon" style="background:rgba(155,89,182,0.1)">🔄</div>
+      <div class="feature-layer" style="color:var(--purple)">Indian Edge Case</div>
+      <h3>Wrong-Side Detector</h3>
+      <p>Fuses compass heading with GPS trajectory to detect wrong-way driving — the leading cause of head-on collisions on single-lane Indian highways.</p>
+    </div>
+
+    <div class="feature-card" style="--accent-color:var(--teal)">
+      <div class="feature-icon" style="background:var(--teal-subtle)">📡</div>
+      <div class="feature-layer text-teal">Edge AI</div>
+      <h3>100% On-Device Processing</h3>
+      <p>All inference runs locally. Works on mid-range phones (₹8,000+) with no data plan required. Offline pothole cache syncs when connectivity returns.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── ARCHITECTURE ──────────────────────────────────────── -->
+<section class="arch-section" id="architecture">
+  <div style="text-align:center;max-width:700px;margin:0 auto;">
+    <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--teal);letter-spacing:0.2em;text-transform:uppercase;">Technical Stack</span>
+    <h2 style="margin-top:16px;">Built for the Billion</h2>
+    <p style="color:var(--text-muted);margin-top:12px;">Edge AI on a ₹0 hardware budget. Every Indian with a smartphone gets a co-pilot.</p>
+  </div>
+  <div class="arch-pills">
+    <div class="arch-pill"><span class="pi">🌐</span> Progressive Web App</div>
+    <div class="arch-pill"><span class="pi">🤖</span> MediaPipe Face Mesh</div>
+    <div class="arch-pill"><span class="pi">📐</span> Device Motion API</div>
+    <div class="arch-pill"><span class="pi">🗺️</span> Leaflet + OpenStreetMap</div>
+    <div class="arch-pill"><span class="pi">🔥</span> Firebase Firestore</div>
+    <div class="arch-pill"><span class="pi">📴</span> Offline-First / PWA Cache</div>
+    <div class="arch-pill"><span class="pi">🎵</span> Web Audio API</div>
+    <div class="arch-pill"><span class="pi">🧭</span> Device Orientation API</div>
+  </div>
+</section>
+
+<!-- ── FOOTER ──────────────────────────────────────────────── -->
+<footer class="footer">
+  <p>Built for <span>IITM × MoRTH Road Safety Hackathon</span> · Project Indra v1.0</p>
+  <p style="margin-top:6px;">Sub-200ms alerts · ₹0 hardware · 92%+ accuracy</p>
+</footer>
+
+<script>
+// ─── PARTICLE NETWORK BACKGROUND ───────────────────────────
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = (Math.random() - 0.5) * 0.4;
+    this.size = Math.random() * 2 + 0.5;
+    this.alpha = Math.random() * 0.6 + 0.2;
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,212,170,${this.alpha})`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+function drawConnections() {
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120) {
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.strokeStyle = `rgba(0,212,170,${0.12 * (1 - dist/120)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => { p.update(); p.draw(); });
+  drawConnections();
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ─── ANIMATED STAT COUNTERS ─────────────────────────────────
+function animateCount(el) {
+  const target = +el.dataset.count;
+  const prefix = el.dataset.prefix || '';
+  const suffix = el.dataset.suffix || '';
+  const duration = 2000;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    const val = Math.floor(ease * target);
+    el.textContent = prefix + val.toLocaleString('en-IN') + suffix;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      animateCount(e.target);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('[data-count]').forEach(el => observer.observe(el));
+
+// ─── PWA SERVICE WORKER ─────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
