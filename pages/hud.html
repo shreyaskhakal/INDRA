@@ -248,13 +248,13 @@
     <div class="strip-card">
       <div class="strip-label">📐 Stop Distance</div>
       <div class="strip-value" id="stop-dist">--</div>
-      <div class="strip-sub" id="surface-type">Surface: Dry</div>
+      <div class="strip-sub" id="surface-type">⏳ Fetching weather...</div>
     </div>
 
     <div class="strip-card">
       <div class="strip-label">⚡ Impact Risk</div>
       <div class="strip-value ok" id="risk-val">LOW</div>
-      <div class="strip-sub" id="risk-sub">Collision vector: safe</div>
+      <div class="strip-sub" id="risk-sub" style="font-size:0.65rem;word-break:break-word">📍 Locating road...</div>
     </div>
 
     <div class="strip-card" style="cursor:pointer" onclick="DeadMansSwitch.trigger(5.2,null)">
@@ -279,6 +279,9 @@
   <a href="dashboard.html" class="scen-btn">Authority Dashboard →</a>
 </div>
 
+<script src="../js/api/weather.js"></script>
+<script src="../js/api/hospitals.js"></script>
+<script src="../js/api/geocoding.js"></script>
 <script src="../js/audio-engine.js"></script>
 <script src="../js/sensor-sim.js"></script>
 <script src="../js/physics-engine.js"></script>
@@ -458,6 +461,38 @@ SensorSim.on('scenario', data => {
 
 PhysicsEngine.start();
 SensorSim.start();
+
+// ── Real-time weather display ────────────────────────────
+async function updateWeatherDisplay(lat, lng) {
+  const w = await WeatherAPI.fetch(lat, lng);
+  if (w) {
+    document.getElementById('surface-type').textContent =
+      `${w.icon} ${w.label} · μ=${w.mu.toFixed(2)} · ${w.rain > 0 ? w.rain+'mm rain' : w.windspeed+'km/h wind'}`;
+  }
+}
+
+// ── Real road name via Nominatim ─────────────────────────
+let lastGeocode = 0;
+async function updateRoadName(lat, lng) {
+  const now = Date.now();
+  if (now - lastGeocode < 5000) return; // max once per 5s
+  lastGeocode = now;
+  const geo = await GeocodingAPI.reverseGeocode(lat, lng);
+  if (geo) {
+    document.getElementById('risk-sub').textContent =
+      `📍 ${geo.road}${geo.suburb ? ', ' + geo.suburb : ''}`;
+  }
+}
+
+// ── GPS-driven API updates ───────────────────────────────
+SensorSim.on('gps', data => {
+  updateRoadName(data.lat, data.lng);
+});
+
+// Initial weather fetch from real GPS
+navigator.geolocation?.getCurrentPosition(pos => {
+  updateWeatherDisplay(pos.coords.latitude, pos.coords.longitude);
+}, () => updateWeatherDisplay(12.9716, 77.5946));
 
 function setScen(name) {
   SensorSim.setScenario(name);

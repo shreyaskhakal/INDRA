@@ -4,15 +4,23 @@
    ============================================================ */
 
 window.PhysicsEngine = (() => {
-  // Road surface friction coefficients (μ)
-  const MU = { dry: 0.75, wet: 0.55, gravel: 0.40, pothole: 0.30 };
   const G = 9.81; // m/s²
 
-  let currentSurface = 'dry';
+  // Default friction table (overridden by live WeatherAPI data)
+  const MU_DEFAULT = { dry: 0.75, wet: 0.55, gravel: 0.40, pothole: 0.30 };
+  let liveMu = 0.75;       // updated from WeatherAPI
+  let liveWeather = null;
   let speed_kmh = 0;
   let gforce = 0;
   let onAlert = null;
   let active = false;
+
+  // Pull real weather every 5 minutes
+  async function refreshWeather(lat, lng) {
+    if (typeof WeatherAPI === 'undefined') return;
+    const w = await WeatherAPI.fetch(lat, lng);
+    if (w) { liveMu = w.mu; liveWeather = w; }
+  }
 
   // ── Stopping Distance Formula ────────────────────────────
   // s = v² / (2 * μ * g)
@@ -30,7 +38,7 @@ window.PhysicsEngine = (() => {
   // ── Check Collision Vector ───────────────────────────────
   function analyse(speedKmh, gf, surface) {
     const v = speedKmh / 3.6; // m/s
-    const mu = MU[surface] || MU.dry;
+    const mu = liveMu || MU_DEFAULT[surface] || MU_DEFAULT.dry;
     const sd = stoppingDistance(v, mu);
 
     // Effective braking distance available given driver's current reaction
@@ -107,11 +115,20 @@ window.PhysicsEngine = (() => {
     active = true;
     const hasReal = attachRealSensors();
     if (!hasReal) {
-      // Sim mode
       SensorSim.on('motion', updateFromSim);
     }
+    // Fetch real weather on start + every 5 min
+    navigator.geolocation?.getCurrentPosition(pos => {
+      refreshWeather(pos.coords.latitude, pos.coords.longitude);
+    }, () => refreshWeather(12.9716, 77.5946)); // default Bangalore
+    setInterval(() => {
+      navigator.geolocation?.getCurrentPosition(pos => {
+        refreshWeather(pos.coords.latitude, pos.coords.longitude);
+      });
+    }, 5 * 60 * 1000);
   }
   function stop() { active = false; }
+  function getWeather() { return liveWeather; }
 
-  return { start, stop, setSurface, setCallback, analyse, stoppingDistance };
+  return { start, stop, setSurface: () => {}, setCallback, analyse, stoppingDistance, getWeather };
 })();

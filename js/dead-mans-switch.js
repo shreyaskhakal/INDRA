@@ -9,29 +9,18 @@ window.DeadMansSwitch = (() => {
   let remaining = 10;
   let modalEl = null;
 
-  // Nearest trauma centres (major Indian cities)
-  const TRAUMA_CENTRES = {
-    // [lat, lng]
-    Bengaluru: [
-      { name: 'Manipal Hospital', addr: 'Old Airport Rd, Bengaluru', phone: '080-2502-4444', lat: 12.9631, lng: 77.6478 },
-      { name: 'NIMHANS Trauma', addr: 'Hosur Rd, Bengaluru', phone: '080-4611-5555', lat: 12.9400, lng: 77.5970 },
-      { name: 'Victoria Hospital', addr: 'K.R. Road, Bengaluru', phone: '080-2670-1150', lat: 12.9625, lng: 77.5741 },
-    ],
-    Mumbai: [
-      { name: 'KEM Hospital', addr: 'Acharya Donde Marg, Mumbai', phone: '022-2410-7000', lat: 19.0030, lng: 72.8428 },
-      { name: 'Hinduja Hospital', addr: 'Mahim, Mumbai', phone: '022-2444-9199', lat: 19.0379, lng: 72.8390 },
-      { name: 'Sion Hospital', addr: 'Sion, Mumbai', phone: '022-2407-6381', lat: 19.0428, lng: 72.8622 },
-    ],
-    Delhi: [
-      { name: 'AIIMS Trauma Centre', addr: 'Ansari Nagar, New Delhi', phone: '011-2659-3468', lat: 28.5672, lng: 77.2100 },
-      { name: 'Safdarjung Hospital', addr: 'Ansari Nagar, New Delhi', phone: '011-2673-0000', lat: 28.5687, lng: 77.2067 },
-      { name: 'RML Hospital', addr: 'Parliament St, New Delhi', phone: '011-2336-5525', lat: 28.6290, lng: 77.2127 },
-    ],
-  };
-
-  function getNearestCentres(lat, lng) {
-    // Default to Bengaluru for demo
-    return TRAUMA_CENTRES.Bengaluru;
+  async function getNearestCentres(lat, lng) {
+    if (typeof HospitalsAPI !== 'undefined') {
+      try {
+        const hospitals = await HospitalsAPI.fetchNear(lat, lng);
+        if (hospitals && hospitals.length) return hospitals;
+      } catch(e) {}
+    }
+    // Fallback
+    return [
+      { name: 'Emergency Services', phone: '112', addr: 'Call 112 immediately', dist_km: '?', mapsUrl: `https://maps.google.com/?q=${lat},${lng}` },
+      { name: 'Ambulance (108)',     phone: '108', addr: 'National ambulance',  dist_km: '?', mapsUrl: `https://maps.google.com/search?q=hospital+near+${lat},${lng}` },
+    ];
   }
 
   function createModal() {
@@ -129,7 +118,7 @@ window.DeadMansSwitch = (() => {
     modalEl = modal;
   }
 
-  function trigger(gValue, position) {
+  async function trigger(gValue, position) {
     if (triggered) return;
     triggered = true;
     remaining = 10;
@@ -138,17 +127,22 @@ window.DeadMansSwitch = (() => {
     document.getElementById('dms-subtitle').textContent =
       `${gValue?.toFixed(1) || '5.0'}G impact detected. Are you OK?`;
 
-    // Populate trauma centres
     const pos = position || { lat: 12.9716, lng: 77.5946 };
-    const centres = getNearestCentres(pos.lat, pos.lng);
+
+    // Show loading state in centres list
     const list = document.getElementById('dms-centres-list');
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:8px">📡 Locating nearest hospitals...</div>';
+
+    const centres = await getNearestCentres(pos.lat, pos.lng);
     list.innerHTML = centres.map(c => `
       <div class="dms-centre">
         <div>
           <div class="dms-centre-name">${c.name}</div>
-          <div style="font-size:0.75rem;color:#5A5A7A;margin-top:2px;">${c.addr}</div>
+          <div style="font-size:0.75rem;color:#5A5A7A;margin-top:2px;">${c.addr}${c.dist_km && c.dist_km !== '?' ? ' · ' + c.dist_km + ' km away' : ''}</div>
         </div>
-        <div class="dms-centre-phone">${c.phone}</div>
+        <a href="${c.mapsUrl}" target="_blank" style="text-decoration:none">
+          <div class="dms-centre-phone">${c.phone}</div>
+        </a>
       </div>
     `).join('');
 

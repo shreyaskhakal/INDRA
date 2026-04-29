@@ -181,6 +181,9 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../js/api/weather.js"></script>
+<script src="../js/api/hospitals.js"></script>
+<script src="../js/api/geocoding.js"></script>
 <script src="../js/mock-data.js"></script>
 <script src="../js/sensor-sim.js"></script>
 <script src="../js/pothole-mapper.js"></script>
@@ -313,6 +316,30 @@ SensorSim.on('pothole', event => {
 });
 
 SensorSim.start();
+
+// ── Real weather on dashboard ────────────────────────────
+(async () => {
+  const pos = await new Promise(res =>
+    navigator.geolocation?.getCurrentPosition(
+      p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => res({ lat: 12.9716, lng: 77.5946 })
+    )
+  );
+  const w = await WeatherAPI.fetch(pos.lat, pos.lng);
+  if (w) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--amber);margin-left:8px;';
+    badge.textContent = `${w.icon} ${w.label} · μ=${w.mu.toFixed(2)}`;
+    document.querySelector('.dash-nav').appendChild(badge);
+
+    // Pan map to real GPS
+    map.setView([pos.lat, pos.lng], 13);
+    L.circle([pos.lat, pos.lng], {
+      radius: 80, color: '#00D4AA', fillColor: '#00D4AA', fillOpacity: 0.3, weight: 2
+    }).addTo(map).bindPopup('<b>Your Location</b><br>' + w.icon + ' ' + w.label);
+  }
+})();
+
 </script>
 </body>
 </html>
